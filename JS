@@ -1,1 +1,182 @@
+const toDoInput = document.querySelector('.todo-input');
+const toDoBtn = document.querySelector('.todo-btn');
+const toDoList = document.querySelector('.todo-list');
+const lightTheme = document.querySelector('.light-theme');
+const darkTheme = document.querySelector('.dark-theme');
+const doneCount = document.getElementById('done-count');
+const undoneCount = document.getElementById('undone-count');
 
+// Event Listeners
+toDoBtn.addEventListener('click', addToDo);
+toDoList.addEventListener('click', handleTodoButtons);
+document.addEventListener("DOMContentLoaded", getTodos);
+lightTheme.addEventListener('click', () => changeTheme('light'));
+darkTheme.addEventListener('click', () => changeTheme('dark'));
+
+// Theme init
+let savedTheme = localStorage.getItem('savedTheme');
+savedTheme === null ? changeTheme('light') : changeTheme(savedTheme);
+
+// Add todo
+function addToDo(event) {
+    event.preventDefault();
+    if (toDoInput.value.trim() === '') {
+        alert("You must write something!");
+        return;
+    }
+    createTodoElement(toDoInput.value);
+    savelocal(toDoInput.value);
+    toDoInput.value = '';
+    updateCounter();
+}
+
+function createTodoElement(todoText, completed = false) {
+    const toDoDiv = document.createElement("div");
+    toDoDiv.classList.add('todo', `${savedTheme}-todo`);
+    if (completed) toDoDiv.classList.add('completed');
+
+    const newToDo = document.createElement('li');
+    newToDo.innerText = todoText;
+    newToDo.classList.add('todo-item');
+    toDoDiv.appendChild(newToDo);
+
+    // check btn
+    const checked = document.createElement('button');
+    checked.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+    checked.classList.add('check-btn', `${savedTheme}-button`);
+    toDoDiv.appendChild(checked);
+
+    // delete btn
+    const deleted = document.createElement('button');
+    deleted.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+    deleted.classList.add('delete-btn', `${savedTheme}-button`);
+    toDoDiv.appendChild(deleted);
+
+    // edit btn
+    const edit = document.createElement('button');
+    edit.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+    edit.classList.add('edit-btn', `${savedTheme}-button`);
+    toDoDiv.appendChild(edit);
+
+    toDoList.appendChild(toDoDiv);
+}
+
+function handleTodoButtons(event) {
+    const item = event.target.closest('button');
+    if (!item) return;
+    const todoDiv = item.closest('.todo');
+
+    // delete
+    if (item.classList.contains('delete-btn')) {
+        removeLocalTodos(todoDiv);
+        todoDiv.classList.add("fall");
+        todoDiv.addEventListener('transitionend', function () {
+            todoDiv.remove();
+            updateCounter();
+        });
+    }
+
+    // check
+    if (item.classList.contains('check-btn')) {
+        todoDiv.classList.toggle("completed");
+        updateCounter();
+    }
+
+    // edit
+    if (item.classList.contains('edit-btn')) {
+        const li = todoDiv.querySelector('li');
+        const currentText = li.innerText;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'edit-input';
+
+        todoDiv.replaceChild(input, li);
+        input.focus();
+
+        input.addEventListener('blur', function () {
+            if (input.value.trim() !== '') {
+                li.innerText = input.value;
+                updateLocalTodos(currentText, input.value);
+            }
+            todoDiv.replaceChild(li, input);
+        });
+
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                if (input.value.trim() !== '') {
+                    li.innerText = input.value;
+                    updateLocalTodos(currentText, input.value);
+                }
+                todoDiv.replaceChild(li, input);
+            }
+        });
+    }
+}
+
+// Local storage
+function savelocal(todo) {
+    let todos = localStorage.getItem('todos') === null ? [] : JSON.parse(localStorage.getItem('todos'));
+    todos.push(todo);
+    localStorage.setItem('todos', JSON.stringify(todos));
+}
+
+function getTodos() {
+    let todos = localStorage.getItem('todos') === null ? [] : JSON.parse(localStorage.getItem('todos'));
+    todos.forEach(function (todo) {
+        createTodoElement(todo);
+    });
+    updateCounter();
+}
+
+function removeLocalTodos(todo) {
+    let todos = localStorage.getItem('todos') === null ? [] : JSON.parse(localStorage.getItem('todos'));
+    const todoIndex = todos.indexOf(todo.querySelector('li').innerText);
+    if (todoIndex > -1) {
+        todos.splice(todoIndex, 1);
+        localStorage.setItem('todos', JSON.stringify(todos));
+    }
+}
+
+function updateLocalTodos(oldText, newText) {
+    let todos = localStorage.getItem('todos') === null ? [] : JSON.parse(localStorage.getItem('todos'));
+    const todoIndex = todos.indexOf(oldText);
+    if (todoIndex > -1) {
+        todos[todoIndex] = newText;
+        localStorage.setItem('todos', JSON.stringify(todos));
+    }
+}
+
+// Counter
+function updateCounter() {
+    const allTodos = document.querySelectorAll('.todo');
+    let done = 0, undone = 0;
+    allTodos.forEach(todo => {
+        if (todo.classList.contains('completed')) done++;
+        else undone++;
+    });
+    doneCount.textContent = `Done: ${done}`;
+    undoneCount.textContent = `Undone: ${undone}`;
+}
+
+// Theme
+function changeTheme(color) {
+    localStorage.setItem('savedTheme', color);
+    savedTheme = color;
+
+    document.body.className = color;
+    document.querySelector('input').className = `${color}-input`;
+
+    document.querySelectorAll('.todo').forEach(todo => {
+        todo.classList.remove('light-todo', 'dark-todo');
+        todo.classList.add(`${color}-todo`);
+    });
+    document.querySelectorAll('button').forEach(button => {
+        button.classList.remove('light-button', 'dark-button');
+        button.classList.add(`${color}-button`);
+    });
+}
+
+// آپدیت شمارنده بعد از هر تغییر
+const observer = new MutationObserver(updateCounter);
+observer.observe(document.querySelector('.todo-list'), { childList: true, subtree: true });
